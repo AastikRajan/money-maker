@@ -1,0 +1,8 @@
+.env
+data/
+dashboard.html
+__pycache__/
+*.pyc
+
+# Statement PDFs (in case anyone clones into a folder with sibling boa/ chase/)
+*.pdf
