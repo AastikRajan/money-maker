@@ -6,3 +6,11 @@ __pycache__/
 
 # Statement PDFs (in case anyone clones into a folder with sibling boa/ chase/)
 *.pdf
+
+# Next.js web app
+web/node_modules/
+web/.next/
+web/out/
+web/.turbo/
+web/next-env.d.ts
+web/*.tsbuildinfo
