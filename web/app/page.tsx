@@ -1,129 +1,72 @@
-import { loadUnified, loadAnomalies, loadSplitwise } from "@/lib/data";
-import { computePeopleNetwork } from "@/lib/trace";
-import Hero from "@/components/Hero";
-import Vault3D from "@/components/Vault3D";
-import MoneyTrace from "@/components/MoneyTrace";
-import AnomaliesPanel from "@/components/AnomaliesPanel";
-import PeoplePulse from "@/components/PeoplePulse";
-import Subscriptions from "@/components/Subscriptions";
-import Ledger from "@/components/Ledger";
-import SectionHead from "@/components/SectionHead";
+import { loadUnified, loadAnomalies } from "@/lib/data";
+import Summary from "@/components/Summary";
+import BigInflowTrace from "@/components/BigInflowTrace";
+import Anomalies from "@/components/Anomalies";
+import Timeline from "@/components/Timeline";
+import TopCategories from "@/components/TopCategories";
 
 export default async function Page() {
-  const [unified, anomalies, splitwise] = await Promise.all([
-    loadUnified(),
-    loadAnomalies(),
-    loadSplitwise(),
-  ]);
+  const [unified, anomalies] = await Promise.all([loadUnified(), loadAnomalies()]);
+  const all = unified.transactions;
 
-  const txns = unified.transactions;
+  // Current Chase balance = the most recent chase transaction's balance_after
+  const chaseSorted = all
+    .filter((t) => t.source === "chase_checking" && t.balance_after != null)
+    .sort((a, b) => (b.date.localeCompare(a.date)));
+  const currentBalance = chaseSorted[0]?.balance_after ?? 0;
 
-  // Compute monthly flow for hero/vault
-  const byMonth = new Map<string, { in: number; out: number; transfer: number }>();
-  for (const t of txns) {
-    const m = t.date.slice(0, 7);
-    if (!byMonth.has(m)) byMonth.set(m, { in: 0, out: 0, transfer: 0 });
-    const b = byMonth.get(m)!;
-    if (t.amount === null) continue;
-    if (t.is_transfer) b.transfer += Math.abs(t.amount);
-    else if (t.amount > 0) b.in += t.amount;
-    else b.out += Math.abs(t.amount);
-  }
-  const monthsKeys = Array.from(byMonth.keys()).sort();
-  const monthly = monthsKeys.map((m) => ({ month: m, ...byMonth.get(m)! }));
-  const currentMonth = monthsKeys[monthsKeys.length - 1] || new Date().toISOString().slice(0, 7);
-  const cur = byMonth.get(currentMonth) || { in: 0, out: 0, transfer: 0 };
-
-  // Find most recent large wire/inflow as pivot for "since the wire"
-  const wires = txns.filter((t) => t.category === "income:wire" && t.amount && t.amount >= 1000).sort((a, b) => b.date.localeCompare(a.date));
-  const pivotWire = wires[0];
-
-  const monthLabel = new Date(currentMonth + "-15").toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
-  // People network
-  const people = computePeopleNetwork(
-    txns.filter((t) => t.date >= currentMonth + "-01"),
-    splitwise.friends
-  );
-
+  // Last 30 days for the summary
   const today = new Date().toISOString().slice(0, 10);
-  const monthStart = currentMonth + "-01";
+  const thirty = new Date();
+  thirty.setDate(thirty.getDate() - 30);
+  const thirtyISO = thirty.toISOString().slice(0, 10);
 
-  // Subscriptions for current month
-  const subTxns = txns.filter((t) => t.date >= monthStart);
+  const last30 = all.filter((t) => t.date >= thirtyISO && t.date <= today);
+  const spent30 = last30
+    .filter((t) => t.amount !== null && t.amount < 0 && !t.is_transfer)
+    .reduce((a, t) => a + Math.abs(t.amount!), 0);
+  const recv30 = last30
+    .filter((t) => t.amount !== null && t.amount > 0 && !t.is_transfer)
+    .reduce((a, t) => a + t.amount!, 0);
+
+  // Last big income (wire >= $500) for the trace card
+  const bigInflow = all
+    .filter((t) => t.source === "chase_checking" && t.amount !== null && t.amount >= 500 && !t.is_transfer)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+  const sinceWire = bigInflow
+    ? all.filter((t) => t.source === "chase_checking" && t.date > bigInflow.date && t.date <= today)
+        .sort((a, b) => a.date.localeCompare(b.date))
+    : [];
 
   return (
-    <div className="space-y-2">
-      <Hero
-        generatedAt={unified.generated_at}
-        totalInflow={cur.in}
-        totalOutflow={cur.out}
-        net={cur.in - cur.out}
-        anomalyCount={anomalies.length}
-        monthLabel={monthLabel}
+    <div className="fade-in">
+      <Summary
+        balance={currentBalance}
+        windowFrom={thirtyISO}
+        windowTo={today}
+        windowSpent={spent30}
+        windowReceived={recv30}
+        windowLabel="last 30 days"
       />
 
-      <Vault3D monthlyFlow={monthly} />
-
-      <SectionHead
-        num={1}
-        title="Items Requiring Attention"
-        subtitle="Suspected omissions on Splitwise &amp; recurring charges that may have escaped your tagging."
-      />
-      <AnomaliesPanel anomalies={anomalies} />
-
-      {pivotWire && (
-        <>
-          <SectionHead
-            num={2}
-            title="Money Trace"
-            subtitle={`Where did your funds go? Pick a window and watch the ribbons. Your last large wire of ${formatUSD(pivotWire.amount!)} on ${pivotWire.date} is set as the default pivot — every dollar from then to now is mapped to a destination, with claret ribbons marking flows that may need a Splitwise entry.`}
-          />
-          <MoneyTrace
-            transactions={txns}
-            anomalies={anomalies}
-            defaultFrom={pivotWire.date}
-            defaultTo={today}
-            pivotDate={pivotWire.date}
-            pivotLabel={`Since the ${formatUSD(pivotWire.amount!, 0)} wire`}
-          />
-        </>
+      {bigInflow && (
+        <BigInflowTrace
+          inflow={bigInflow}
+          laterTransactions={sinceWire}
+          endingBalance={currentBalance}
+        />
       )}
 
-      <SectionHead
-        num={3}
-        title="The People In Your Finances"
-        subtitle="Who you owe, who owes you, and the Zelle traffic between &mdash; cross-checked against Splitwise."
-      />
-      <PeoplePulse people={people} />
+      <Anomalies anomalies={anomalies} />
 
-      <SectionHead
-        num={4}
-        title="Standing Orders"
-        subtitle="Recurring charges currently active. Cancel ruthlessly."
-      />
-      <Subscriptions transactions={subTxns} />
+      <Timeline transactions={all} />
 
-      <SectionHead
-        num={5}
-        title="The Ledger"
-        subtitle="Every entry, filterable. Click a column header to sort."
-      />
-      <Ledger transactions={txns} defaultFrom={monthStart} />
+      <TopCategories transactions={last30} label="last 30 days" />
 
-      <footer className="mt-24 text-center">
-        <div className="mx-auto h-px w-60 bg-[color:color-mix(in_srgb,var(--color-gold)_30%,transparent)]" />
-        <p className="mt-5 font-display text-sm italic text-[color:var(--color-ink-mute)]">
-          Compiled {unified.generated_at.slice(0, 16).replace("T", " ")} UTC
-        </p>
-        <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[color:var(--color-gold-deep)]">
-          M &middot; M &nbsp;&middot;&nbsp; Anno Domini MMXXVI
-        </p>
+      <footer className="mt-12 pt-6 text-center text-xs text-[color:var(--color-text-mute)] border-t border-[color:var(--color-border-soft)]">
+        Updated {unified.generated_at.slice(0, 16).replace("T", " ")} UTC
       </footer>
     </div>
   );
-}
-
-function formatUSD(n: number, decimals = 2) {
-  return `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
