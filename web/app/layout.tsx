@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <div className="mx-auto max-w-2xl px-5 py-8 md:py-12">
+        <div className="mx-auto max-w-3xl px-5 py-8 md:py-12">
           <header className="mb-10 flex items-baseline justify-between">
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-full bg-[color:var(--color-accent)] text-sm font-bold text-white">

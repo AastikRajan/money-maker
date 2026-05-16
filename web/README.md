@@ -4,21 +4,30 @@ A simple money diary. Tells you, in plain English, what came in and what went ou
 
 ## Run
 
+For everyday use, run the **production build** — it's small and fast (398 KB / ~5ms response):
+
 ```bash
 cd web
 npm install --legacy-peer-deps
-npm run dev          # http://localhost:3000
+npm run build && npm run start    # http://localhost:3000
 ```
 
-Reads `../data/{unified,anomalies}.json` server-side at request time. Run the Python pipeline first.
+Use `npm run dev` only when editing code (HMR + source maps make the dev payload ~10× larger).
+
+Reads `../data/{unified,anomalies,splitwise}.json` server-side at request time. Run the Python pipeline first.
 
 ## What's on the page (top to bottom)
 
-1. **Hi, here's your money.** — current Chase balance, last 30 days spent / received / net.
-2. **Your last big income** — most recent wire / large deposit, with a small balance line showing how it's been drawn down since, and three plain-English boxes: spent on stuff / moved to others / left right now.
-3. **Things to check** — the anomaly list. Each has a ✓ button you can tap to mark it handled.
-4. **Day by day** — vertical timeline of days. Newest first. Each day card shows total in/out and lists transactions. Filters: window (week/30/60/90), hide transfers, min amount.
-5. **Where it goes** — top categories of the last 30 days as a simple bar chart.
+1. **Hi, here's your money** — current Chase balance, last 30 days spent / received / net.
+2. **Your money over the last 6 months** — 3D-perspective bar chart (CSS only, no WebGL). Green bars = money in, red = out. Numbers labeled under each month.
+3. **Your last big income** — most recent wire, with a balance line showing how it's been drawn down since, plus three plain boxes: spent on stuff / moved to others / left right now.
+4. **Things to check** — the anomaly list (Zelles likely missing from Splitwise, untagged recurring charges). Each has a ✓ button to dismiss as handled.
+5. **Where your money flowed** — two-column In / Out view of the last 30 days, with bars for each category.
+6. **People in your money** — Splitwise friends + Zelle activity, side by side, with "Owes you" / "You owe" / "Settled" badges.
+7. **Recurring subscriptions** — what's quietly billing you.
+8. **Day by day** — vertical timeline. Each Zelle is **enriched with its Splitwise story** ("↳ For 'Trader Joe's groceries' · Onkar paid $94.50, your share $47.25") so you see why each transfer happened. Filters for window, hide transfers, min amount.
+9. **Where it goes** — top 8 categories as horizontal bars.
+10. **Search every transaction** — full filterable ledger with text search, account / flow filters, "show 50 more" pagination.
 
 ## Stack
 

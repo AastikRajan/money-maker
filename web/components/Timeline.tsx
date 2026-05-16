@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import type { Transaction } from "@/lib/types";
+import type { EnrichedTransaction } from "@/lib/enrich";
 import { fmtUSD } from "@/lib/format";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -9,7 +10,7 @@ const SOURCE_LABELS: Record<string, string> = {
   splitwise: "Split",
 };
 
-interface Props { transactions: Transaction[]; }
+interface Props { transactions: EnrichedTransaction[]; }
 
 export default function Timeline({ transactions }: Props) {
   const [hideTransfers, setHideTransfers] = useState(true);
@@ -103,7 +104,7 @@ export default function Timeline({ transactions }: Props) {
   );
 }
 
-function DayCard({ date, txns, inAmt, outAmt }: { date: string; txns: Transaction[]; inAmt: number; outAmt: number }) {
+function DayCard({ date, txns, inAmt, outAmt }: { date: string; txns: EnrichedTransaction[]; inAmt: number; outAmt: number }) {
   const d = new Date(date + "T00:00:00");
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -146,6 +147,12 @@ function DayCard({ date, txns, inAmt, outAmt }: { date: string; txns: Transactio
                   </span>
                 )}
               </div>
+              {t.story && (
+                <div className="mt-1.5 flex items-start gap-1.5 text-[12px] text-[color:var(--color-text-soft)] leading-snug">
+                  <span className="text-[color:var(--color-text-mute)] flex-shrink-0">↳</span>
+                  <span className="italic">{t.story}</span>
+                </div>
+              )}
             </div>
             <div
               className={`flex-shrink-0 font-mono-tab text-[15px] font-semibold tabular-nums ${
